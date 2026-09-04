@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface CafeRepository extends JpaRepository<Cafe, Long> {
 
+    @EntityGraph(attributePaths = "neighbourhood")
     List<Cafe> findByActiveTrueOrderByFeaturedDescNameAsc();
 
     @EntityGraph(attributePaths = "neighbourhood")

@@ -7,6 +7,8 @@ import com.socialcup.drink.DrinkRepository;
 import com.socialcup.neighbourhood.NeighbourhoodRepository;
 import com.socialcup.profile.CoffeePreference;
 import com.socialcup.profile.UserCoffeePreferenceRepository;
+import com.socialcup.rating.RatingService;
+import com.socialcup.rating.RatingSummaryResponse;
 import com.socialcup.user.User;
 import com.socialcup.user.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -37,19 +39,22 @@ public class DiscoverService {
     private final NeighbourhoodRepository neighbourhoodRepository;
     private final CafeRepository cafeRepository;
     private final DrinkRepository drinkRepository;
+    private final RatingService ratingService;
 
     public DiscoverService(
             UserRepository userRepository,
             UserCoffeePreferenceRepository userCoffeePreferenceRepository,
             NeighbourhoodRepository neighbourhoodRepository,
             CafeRepository cafeRepository,
-            DrinkRepository drinkRepository
+            DrinkRepository drinkRepository,
+            RatingService ratingService
     ) {
         this.userRepository = userRepository;
         this.userCoffeePreferenceRepository = userCoffeePreferenceRepository;
         this.neighbourhoodRepository = neighbourhoodRepository;
         this.cafeRepository = cafeRepository;
         this.drinkRepository = drinkRepository;
+        this.ratingService = ratingService;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +86,8 @@ public class DiscoverService {
                 .collect(Collectors.groupingBy(drink -> drink.getCafe().getId()));
         Set<String> preferenceCodes = loadActivePreferenceCodes(userId);
         boolean hasLocation = latitude != null && longitude != null;
+        Map<Long, RatingSummaryResponse> ratingsByCafeId = ratingService
+                .getCafeRatingSummaries(cafes.stream().map(Cafe::getId).toList());
 
         List<CafeDiscoveryData> rankedCafes = new ArrayList<>(cafes.size());
         for (Cafe cafe : cafes) {
@@ -89,7 +96,8 @@ public class DiscoverService {
                     cafe,
                     minimumCreditPrice(cafeDrinks),
                     calculateDistance(latitude, longitude, cafe, hasLocation),
-                    isPreferenceMatch(cafeDrinks, preferenceCodes)
+                    isPreferenceMatch(cafeDrinks, preferenceCodes),
+                    ratingsByCafeId.getOrDefault(cafe.getId(), RatingSummaryResponse.empty())
             ));
         }
         rankedCafes.sort(cafeComparator(user, hasLocation));
@@ -261,7 +269,10 @@ public class DiscoverService {
                 cafe.getName(),
                 cafe.getNeighbourhood().getName(),
                 cafe.getPerkLine(),
-                data.minimumCreditPrice()
+                data.minimumCreditPrice(),
+                data.rating().averageRating(),
+                data.rating().ratingCount(),
+                data.rating().ratingCount() == 0
         );
     }
 
@@ -290,7 +301,10 @@ public class DiscoverService {
                 cafe.isFeatured(),
                 data.minimumCreditPrice(),
                 data.distanceKm(),
-                data.preferenceMatch()
+                data.preferenceMatch(),
+                data.rating().averageRating(),
+                data.rating().ratingCount(),
+                data.rating().ratingCount() == 0
         );
     }
 
@@ -298,7 +312,8 @@ public class DiscoverService {
             Cafe cafe,
             Integer minimumCreditPrice,
             BigDecimal distanceKm,
-            boolean preferenceMatch
+            boolean preferenceMatch,
+            RatingSummaryResponse rating
     ) {
     }
 }

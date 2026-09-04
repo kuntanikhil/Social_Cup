@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/api/health",
                                 "/api/neighbourhoods",
                                 "/api/coffee-preferences",
+                                "/api/drinks/*/rating-summary",
                                 "/api/cafes",
                                 "/api/cafes/**"
                         )

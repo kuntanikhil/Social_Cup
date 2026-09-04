@@ -6,13 +6,17 @@ import com.socialcup.drink.DrinkResponse;
 import com.socialcup.neighbourhood.Neighbourhood;
 import com.socialcup.neighbourhood.NeighbourhoodRepository;
 import com.socialcup.neighbourhood.NeighbourhoodResponse;
+import com.socialcup.rating.RatingService;
+import com.socialcup.rating.RatingSummaryResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class CafeService {
@@ -22,19 +26,22 @@ public class CafeService {
     private final CafeOpeningHoursRepository cafeOpeningHoursRepository;
     private final DrinkRepository drinkRepository;
     private final NeighbourhoodRepository neighbourhoodRepository;
+    private final RatingService ratingService;
 
     public CafeService(
             CafeRepository cafeRepository,
             CafePhotoRepository cafePhotoRepository,
             CafeOpeningHoursRepository cafeOpeningHoursRepository,
             DrinkRepository drinkRepository,
-            NeighbourhoodRepository neighbourhoodRepository
+            NeighbourhoodRepository neighbourhoodRepository,
+            RatingService ratingService
     ) {
         this.cafeRepository = cafeRepository;
         this.cafePhotoRepository = cafePhotoRepository;
         this.cafeOpeningHoursRepository = cafeOpeningHoursRepository;
         this.drinkRepository = drinkRepository;
         this.neighbourhoodRepository = neighbourhoodRepository;
+        this.ratingService = ratingService;
     }
 
     @Transactional
@@ -82,19 +89,30 @@ public class CafeService {
 
     @Transactional(readOnly = true)
     public List<CafeCardResponse> getActiveCafes() {
-        return cafeRepository.findByActiveTrueOrderByFeaturedDescNameAsc()
+        List<Cafe> cafes = cafeRepository.findByActiveTrueOrderByFeaturedDescNameAsc();
+        Map<Long, List<Drink>> drinksByCafeId = getActiveDrinksByCafeId(cafes);
+        Map<Long, RatingSummaryResponse> ratingsByCafeId = ratingService
+                .getCafeRatingSummaries(cafes.stream().map(Cafe::getId).toList());
+
+        return cafes
                 .stream()
-                .map(cafe -> new CafeCardResponse(
-                        cafe.getId(),
-                        cafe.getName(),
-                        cafe.getNeighbourhood().getName(),
-                        cafe.getAddress(),
-                        cafe.getPerkLine(),
-                        cafe.isFeatured(),
-                        cafe.getLatitude(),
-                        cafe.getLongitude(),
-                        drinkRepository.findMinimumActiveCreditPriceByCafeId(cafe.getId()).orElse(null)
-                ))
+                .map(cafe -> {
+                    RatingSummaryResponse rating = ratingFor(ratingsByCafeId, cafe.getId());
+                    return new CafeCardResponse(
+                            cafe.getId(),
+                            cafe.getName(),
+                            cafe.getNeighbourhood().getName(),
+                            cafe.getAddress(),
+                            cafe.getPerkLine(),
+                            cafe.isFeatured(),
+                            cafe.getLatitude(),
+                            cafe.getLongitude(),
+                            minimumCreditPrice(drinksByCafeId.getOrDefault(cafe.getId(), List.of())),
+                            rating.averageRating(),
+                            rating.ratingCount(),
+                            rating.ratingCount() == 0
+                    );
+                })
                 .toList();
     }
 
@@ -129,6 +147,10 @@ public class CafeService {
                 .stream()
                 .map(this::toPublicDrinkResponse)
                 .toList();
+        RatingSummaryResponse rating = ratingFor(
+                ratingService.getCafeRatingSummaries(List.of(id)),
+                id
+        );
 
         return new CafeDetailResponse(
                 cafe.getId(),
@@ -142,6 +164,9 @@ public class CafeService {
                 cafe.getLongitude(),
                 cafe.getPerkLine(),
                 cafe.isFeatured(),
+                rating.averageRating(),
+                rating.ratingCount(),
+                rating.ratingCount() == 0,
                 photos,
                 openingHours,
                 drinks
@@ -191,5 +216,30 @@ public class CafeService {
                 drink.getCreditPrice(),
                 drink.isSignature()
         );
+    }
+
+    private Map<Long, List<Drink>> getActiveDrinksByCafeId(List<Cafe> cafes) {
+        if (cafes.isEmpty()) {
+            return Map.of();
+        }
+        return drinkRepository.findActiveDrinksForActiveCafes(
+                        cafes.stream().map(Cafe::getId).toList()
+                )
+                .stream()
+                .collect(Collectors.groupingBy(drink -> drink.getCafe().getId()));
+    }
+
+    private Integer minimumCreditPrice(List<Drink> drinks) {
+        return drinks.stream()
+                .map(Drink::getCreditPrice)
+                .min(Integer::compareTo)
+                .orElse(null);
+    }
+
+    private RatingSummaryResponse ratingFor(
+            Map<Long, RatingSummaryResponse> ratingsByCafeId,
+            Long cafeId
+    ) {
+        return ratingsByCafeId.getOrDefault(cafeId, RatingSummaryResponse.empty());
     }
 }

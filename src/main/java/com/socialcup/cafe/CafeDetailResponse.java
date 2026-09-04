@@ -15,6 +15,9 @@ public record CafeDetailResponse(
         BigDecimal longitude,
         String perkLine,
         boolean featured,
+        BigDecimal averageRating,
+        long ratingCount,
+        boolean newCafe,
         List<CafePhotoResponse> photos,
         List<CafeOpeningHoursResponse> openingHours,
         List<DrinkResponse> drinks

@@ -11,6 +11,9 @@ public record CafeCardResponse(
         boolean featured,
         BigDecimal latitude,
         BigDecimal longitude,
-        Integer minimumCreditPrice
+        Integer minimumCreditPrice,
+        BigDecimal averageRating,
+        long ratingCount,
+        boolean newCafe
 ) {
 }

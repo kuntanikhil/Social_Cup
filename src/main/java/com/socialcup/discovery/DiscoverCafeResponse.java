@@ -11,6 +11,9 @@ public record DiscoverCafeResponse(
         boolean featured,
         Integer minimumCreditPrice,
         BigDecimal distanceKm,
-        boolean preferenceMatch
+        boolean preferenceMatch,
+        BigDecimal averageRating,
+        long ratingCount,
+        boolean newCafe
 ) {
 }
