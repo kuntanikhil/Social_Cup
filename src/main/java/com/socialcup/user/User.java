@@ -67,6 +67,16 @@ public class User {
         return new User(email, displayName);
     }
 
+    public void updateProfile(String displayName, Neighbourhood homeNeighbourhood) {
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        this.displayName = displayName;
+        this.homeNeighbourhood = homeNeighbourhood;
+        if (this.onboardingCompletedAt == null) {
+            this.onboardingCompletedAt = now;
+        }
+        this.updatedAt = now;
+    }
+
     @PreUpdate
     void updateTimestamp() {
         updatedAt = OffsetDateTime.now(ZoneOffset.UTC);

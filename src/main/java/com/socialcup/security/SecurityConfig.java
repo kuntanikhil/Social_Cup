@@ -42,14 +42,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/neighbourhoods")
-                        .permitAll()
                         .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/auth/refresh"
+                                HttpMethod.GET,
+                                "/api/health",
+                                "/api/neighbourhoods",
+                                "/api/coffee-preferences",
+                                "/api/cafes",
+                                "/api/cafes/**"
                         )
+                        .permitAll()
+                        .requestMatchers("/api/auth/**")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
