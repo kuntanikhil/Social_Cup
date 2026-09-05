@@ -52,6 +52,8 @@ public class SecurityConfig {
                                 "/api/cafes/**"
                         )
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/webhooks/stripe")
+                        .permitAll()
                         .requestMatchers("/api/auth/**")
                         .permitAll()
                         .anyRequest()

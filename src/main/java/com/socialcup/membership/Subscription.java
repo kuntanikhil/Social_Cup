@@ -59,12 +59,13 @@ public class Subscription {
 
     private Subscription(
             User user,
+            SubscriptionStatus status,
             OffsetDateTime currentPeriodStart,
             OffsetDateTime currentPeriodEnd
     ) {
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         this.user = user;
-        this.status = SubscriptionStatus.ACTIVE;
+        this.status = status;
         this.currentPeriodStart = currentPeriodStart;
         this.currentPeriodEnd = currentPeriodEnd;
         this.cancelAtPeriodEnd = false;
@@ -77,7 +78,16 @@ public class Subscription {
             OffsetDateTime currentPeriodStart,
             OffsetDateTime currentPeriodEnd
     ) {
-        return new Subscription(user, currentPeriodStart, currentPeriodEnd);
+        return new Subscription(
+                user,
+                SubscriptionStatus.ACTIVE,
+                currentPeriodStart,
+                currentPeriodEnd
+        );
+    }
+
+    public static Subscription createForStripeCheckout(User user) {
+        return new Subscription(user, SubscriptionStatus.INCOMPLETE, null, null);
     }
 
     public void activateDemo(
@@ -89,6 +99,66 @@ public class Subscription {
         this.currentPeriodEnd = currentPeriodEnd;
         this.cancelAtPeriodEnd = false;
         this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void beginStripeCheckout(
+            String stripeSubscriptionId,
+            OffsetDateTime currentPeriodStart,
+            OffsetDateTime currentPeriodEnd,
+            boolean cancelAtPeriodEnd
+    ) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+        this.status = SubscriptionStatus.INCOMPLETE;
+        updateStripePeriod(currentPeriodStart, currentPeriodEnd);
+        this.cancelAtPeriodEnd = cancelAtPeriodEnd;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void activateFromSuccessfulPayment(
+            OffsetDateTime currentPeriodStart,
+            OffsetDateTime currentPeriodEnd
+    ) {
+        this.status = this.cancelAtPeriodEnd
+                ? SubscriptionStatus.CANCEL_AT_PERIOD_END
+                : SubscriptionStatus.ACTIVE;
+        updateStripePeriod(currentPeriodStart, currentPeriodEnd);
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void markPaymentFailed() {
+        this.status = SubscriptionStatus.PAYMENT_FAILED;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void synchronizeFromStripe(
+            SubscriptionStatus status,
+            OffsetDateTime currentPeriodStart,
+            OffsetDateTime currentPeriodEnd,
+            boolean cancelAtPeriodEnd
+    ) {
+        this.status = status;
+        if (currentPeriodStart != null && currentPeriodEnd != null) {
+            updateStripePeriod(currentPeriodStart, currentPeriodEnd);
+        }
+        this.cancelAtPeriodEnd = cancelAtPeriodEnd;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    private void updateStripePeriod(
+            OffsetDateTime currentPeriodStart,
+            OffsetDateTime currentPeriodEnd
+    ) {
+        if (currentPeriodStart != null && currentPeriodEnd != null
+                && !currentPeriodEnd.isAfter(currentPeriodStart)) {
+            throw new IllegalArgumentException("Subscription period end must be after its start");
+        }
+        this.currentPeriodStart = currentPeriodStart;
+        this.currentPeriodEnd = currentPeriodEnd;
     }
 
     @PreUpdate

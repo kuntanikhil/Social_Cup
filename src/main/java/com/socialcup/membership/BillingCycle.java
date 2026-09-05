@@ -81,6 +81,23 @@ public class BillingCycle {
         );
     }
 
+    public static BillingCycle createProcessedStripe(
+            Subscription subscription,
+            OffsetDateTime periodStart,
+            OffsetDateTime periodEnd,
+            String stripeReference,
+            OffsetDateTime processedAt
+    ) {
+        return new BillingCycle(
+                subscription,
+                periodStart,
+                periodEnd,
+                stripeReference,
+                STATUS_PROCESSED,
+                processedAt
+        );
+    }
+
     public Long getId() {
         return id;
     }

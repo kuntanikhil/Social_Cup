@@ -2,6 +2,7 @@ package com.socialcup.membership;
 
 public enum SubscriptionStatus {
     NONE,
+    INCOMPLETE,
     ACTIVE,
     PAYMENT_FAILED,
     CANCEL_AT_PERIOD_END,

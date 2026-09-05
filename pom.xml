@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>25</java.version>
 		<jjwt.version>0.13.0</jjwt.version>
+		<stripe.version>33.3.0</stripe.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -61,6 +62,12 @@
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
 			<version>${jjwt.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>${stripe.version}</version>
 		</dependency>
 
 		<dependency>
