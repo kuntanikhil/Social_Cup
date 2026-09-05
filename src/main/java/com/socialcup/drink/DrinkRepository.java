@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface DrinkRepository extends JpaRepository<Drink, Long> {
 
+    Optional<Drink> findByIdAndActiveTrue(Long id);
+
     List<Drink> findByCafeIdOrderByNameAsc(Long cafeId);
 
     List<Drink> findByCafeIdAndActiveTrueOrderByNameAsc(Long cafeId);
