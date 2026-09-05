@@ -131,6 +131,14 @@ public class RedemptionSession {
         }
     }
 
+    public void markRedeemed(OffsetDateTime consumedAt) {
+        if (status != RedemptionSessionStatus.ACTIVE) {
+            throw new IllegalStateException("Only an active session can be redeemed");
+        }
+        this.status = RedemptionSessionStatus.REDEEMED;
+        this.consumedAt = consumedAt;
+    }
+
     public Long getId() {
         return id;
     }

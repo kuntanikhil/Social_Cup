@@ -69,6 +69,27 @@ public class CreditService {
     }
 
     @Transactional
+    public int deductForRedemption(
+            User user,
+            Long redemptionId,
+            int creditsSpent
+    ) {
+        CreditAccount account = creditAccountRepository
+                .findByUserIdForUpdate(user.getId())
+                .orElseGet(() -> creditAccountRepository.save(
+                        CreditAccount.create(user)
+                ));
+        account.deduct(creditsSpent);
+        creditTransactionRepository.save(CreditTransaction.forRedemption(
+                user,
+                redemptionId,
+                creditsSpent
+        ));
+        creditAccountRepository.save(account);
+        return account.getCreditsRemaining();
+    }
+
+    @Transactional
     public List<CreditTransactionResponse> getTransactions(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(

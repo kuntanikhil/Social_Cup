@@ -1,5 +1,6 @@
 package com.socialcup.security;
 
+import com.socialcup.barista.CafeDeviceAuthenticationFilter;
 import com.socialcup.user.UserRepository;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,7 +27,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CafeDeviceAuthenticationFilter cafeDeviceAuthenticationFilter
+    ) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session
@@ -54,6 +58,13 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/webhooks/stripe")
                         .permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/barista/device/authenticate"
+                        )
+                        .permitAll()
+                        .requestMatchers("/api/barista/**")
+                        .hasAuthority("CAFE_DEVICE")
                         .requestMatchers("/api/auth/**")
                         .permitAll()
                         .anyRequest()
@@ -62,11 +73,15 @@ public class SecurityConfig {
                         new JwtAuthenticationFilter(jwtService, userRepository),
                         UsernamePasswordAuthenticationFilter.class
                 )
+                .addFilterBefore(
+                        cafeDeviceAuthenticationFilter,
+                        JwtAuthenticationFilter.class
+                )
                 .build();
     }
 
     @Bean
-    PasswordEncoder passwordEncoder() {
+    static PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 

@@ -52,6 +52,7 @@ public class CreditTransaction {
     private CreditTransaction(
             User user,
             BillingCycle billingCycle,
+            Long redemptionId,
             CreditTransactionType type,
             Integer amount
     ) {
@@ -60,6 +61,7 @@ public class CreditTransaction {
         }
         this.user = user;
         this.billingCycle = billingCycle;
+        this.redemptionId = redemptionId;
         this.type = type;
         this.amount = amount;
         this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
@@ -71,7 +73,27 @@ public class CreditTransaction {
             CreditTransactionType type,
             Integer amount
     ) {
-        return new CreditTransaction(user, billingCycle, type, amount);
+        return new CreditTransaction(user, billingCycle, null, type, amount);
+    }
+
+    static CreditTransaction forRedemption(
+            User user,
+            Long redemptionId,
+            Integer creditsSpent
+    ) {
+        if (redemptionId == null) {
+            throw new IllegalArgumentException("Redemption ID is required");
+        }
+        if (creditsSpent == null || creditsSpent <= 0) {
+            throw new IllegalArgumentException("Credits spent must be positive");
+        }
+        return new CreditTransaction(
+                user,
+                null,
+                redemptionId,
+                CreditTransactionType.REDEMPTION,
+                -creditsSpent
+        );
     }
 
     public Long getId() {

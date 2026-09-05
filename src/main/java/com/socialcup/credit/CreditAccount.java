@@ -53,6 +53,17 @@ public class CreditAccount {
         this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
+    void deduct(int credits) {
+        if (credits <= 0) {
+            throw new IllegalArgumentException("Credit deduction must be positive");
+        }
+        if (creditsRemaining < credits) {
+            throw new InsufficientCreditsException();
+        }
+        this.creditsRemaining -= credits;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
     public Long getUserId() {
         return userId;
     }

@@ -1,35 +1,31 @@
 package com.socialcup.redemption;
 
+import com.socialcup.security.SecureTokenService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Locale;
 
 @Component
 class RedemptionCredentialGenerator {
 
-    private static final int QR_TOKEN_BYTES = 32;
     private static final int BACKUP_CODE_BOUND = 1_000_000;
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final PasswordEncoder passwordEncoder;
+    private final SecureTokenService secureTokenService;
 
-    RedemptionCredentialGenerator(PasswordEncoder passwordEncoder) {
+    RedemptionCredentialGenerator(
+            PasswordEncoder passwordEncoder,
+            SecureTokenService secureTokenService
+    ) {
         this.passwordEncoder = passwordEncoder;
+        this.secureTokenService = secureTokenService;
     }
 
     GeneratedRedemptionCredentials generate() {
-        byte[] tokenBytes = new byte[QR_TOKEN_BYTES];
-        secureRandom.nextBytes(tokenBytes);
-
-        String qrToken = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(tokenBytes);
+        String qrToken = secureTokenService.generateToken();
         String backupCode = String.format(
                 Locale.ROOT,
                 "%06d",
@@ -38,19 +34,10 @@ class RedemptionCredentialGenerator {
 
         return new GeneratedRedemptionCredentials(
                 qrToken,
-                sha256(qrToken),
+                secureTokenService.hash(qrToken),
                 backupCode,
                 passwordEncoder.encode(backupCode)
         );
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
     }
 
     static final class GeneratedRedemptionCredentials {

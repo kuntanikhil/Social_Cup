@@ -140,6 +140,14 @@ public class Cafe {
         this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
+    public void updateBaristaPinHash(String pinHash) {
+        if (pinHash == null || pinHash.isBlank()) {
+            throw new IllegalArgumentException("Barista PIN hash is required");
+        }
+        this.pinHash = pinHash;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
     @PreUpdate
     void updateTimestamp() {
         updatedAt = OffsetDateTime.now(ZoneOffset.UTC);

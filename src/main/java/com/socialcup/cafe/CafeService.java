@@ -1,5 +1,7 @@
 package com.socialcup.cafe;
 
+import com.socialcup.barista.CafeDevice;
+import com.socialcup.barista.CafeDeviceRepository;
 import com.socialcup.drink.Drink;
 import com.socialcup.drink.DrinkRepository;
 import com.socialcup.drink.DrinkResponse;
@@ -9,10 +11,13 @@ import com.socialcup.neighbourhood.NeighbourhoodResponse;
 import com.socialcup.rating.RatingService;
 import com.socialcup.rating.RatingSummaryResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +32,8 @@ public class CafeService {
     private final DrinkRepository drinkRepository;
     private final NeighbourhoodRepository neighbourhoodRepository;
     private final RatingService ratingService;
+    private final CafeDeviceRepository cafeDeviceRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public CafeService(
             CafeRepository cafeRepository,
@@ -34,7 +41,9 @@ public class CafeService {
             CafeOpeningHoursRepository cafeOpeningHoursRepository,
             DrinkRepository drinkRepository,
             NeighbourhoodRepository neighbourhoodRepository,
-            RatingService ratingService
+            RatingService ratingService,
+            CafeDeviceRepository cafeDeviceRepository,
+            PasswordEncoder passwordEncoder
     ) {
         this.cafeRepository = cafeRepository;
         this.cafePhotoRepository = cafePhotoRepository;
@@ -42,6 +51,8 @@ public class CafeService {
         this.drinkRepository = drinkRepository;
         this.neighbourhoodRepository = neighbourhoodRepository;
         this.ratingService = ratingService;
+        this.cafeDeviceRepository = cafeDeviceRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -77,6 +88,37 @@ public class CafeService {
                 request.active()
         );
         return toAdminResponse(cafeRepository.save(cafe));
+    }
+
+    @Transactional
+    public BaristaPinUpdateResponse updateBaristaPin(
+            Long cafeId,
+            BaristaPinUpdateRequest request
+    ) {
+        if (request.pin() == null || !request.pin().matches("\\d{4,6}")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "PIN must contain 4 to 6 numeric digits"
+            );
+        }
+
+        Cafe cafe = cafeRepository.findByIdForUpdate(cafeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Cafe not found"
+                ));
+        cafe.updateBaristaPinHash(passwordEncoder.encode(request.pin()));
+
+        OffsetDateTime revokedAt = OffsetDateTime.now(ZoneOffset.UTC);
+        List<CafeDevice> activeDevices = cafeDeviceRepository
+                .findActiveByCafeIdForUpdate(cafeId);
+        activeDevices.forEach(device -> device.revoke(revokedAt));
+
+        cafeRepository.save(cafe);
+        return new BaristaPinUpdateResponse(
+                cafe.getId(),
+                "Barista PIN updated successfully"
+        );
     }
 
     @Transactional(readOnly = true)

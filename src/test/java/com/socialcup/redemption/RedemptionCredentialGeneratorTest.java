@@ -1,5 +1,6 @@
 package com.socialcup.redemption;
 
+import com.socialcup.security.SecureTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -13,7 +14,10 @@ class RedemptionCredentialGeneratorTest {
     void generatesHashedOneTimeCredentials() {
         BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
         RedemptionCredentialGenerator generator =
-                new RedemptionCredentialGenerator(passwordEncoder);
+                new RedemptionCredentialGenerator(
+                        passwordEncoder,
+                        new SecureTokenService()
+                );
 
         RedemptionCredentialGenerator.GeneratedRedemptionCredentials credentials =
                 generator.generate();

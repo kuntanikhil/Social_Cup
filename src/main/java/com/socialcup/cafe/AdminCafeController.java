@@ -39,6 +39,14 @@ public class AdminCafeController {
         return cafeService.updateCafe(id, request);
     }
 
+    @PutMapping("/{cafeId}/barista-pin")
+    public BaristaPinUpdateResponse updateBaristaPin(
+            @PathVariable Long cafeId,
+            @Valid @RequestBody BaristaPinUpdateRequest request
+    ) {
+        return cafeService.updateBaristaPin(cafeId, request);
+    }
+
     @GetMapping
     public List<CafeResponse> getCafes() {
         return cafeService.getAllCafesForAdmin();
