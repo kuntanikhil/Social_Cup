@@ -67,6 +67,8 @@ public class SecurityConfig {
                         .hasAuthority("CAFE_DEVICE")
                         .requestMatchers("/api/auth/**")
                         .permitAll()
+                        .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(

@@ -1,6 +1,7 @@
 package com.socialcup.profile;
 
 import com.socialcup.user.User;
+import com.socialcup.user.UserRole;
 import com.socialcup.neighbourhood.NeighbourhoodResponse;
 
 import java.util.List;
@@ -10,6 +11,7 @@ public record ProfileResponse(
         String email,
         String displayName,
         String accountStatus,
+        UserRole role,
         NeighbourhoodResponse homeNeighbourhood,
         List<CoffeePreferenceResponse> coffeePreferences,
         boolean onboardingCompleted
@@ -34,6 +36,7 @@ public record ProfileResponse(
                 user.getEmail(),
                 user.getDisplayName(),
                 user.getAccountStatus(),
+                user.getRole(),
                 neighbourhood,
                 coffeePreferences,
                 user.getOnboardingCompletedAt() != null

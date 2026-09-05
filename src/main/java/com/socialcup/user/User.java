@@ -3,6 +3,8 @@ package com.socialcup.user;
 import com.socialcup.neighbourhood.Neighbourhood;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -45,6 +47,10 @@ public class User {
     @Column(name = "account_status", nullable = false, length = 30)
     private String accountStatus;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private UserRole role;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -59,6 +65,7 @@ public class User {
         this.email = email;
         this.displayName = displayName;
         this.accountStatus = "ACTIVE";
+        this.role = UserRole.MEMBER;
         this.createdAt = now;
         this.updatedAt = now;
     }
@@ -75,6 +82,11 @@ public class User {
             this.onboardingCompletedAt = now;
         }
         this.updatedAt = now;
+    }
+
+    public void promoteToAdmin() {
+        this.role = UserRole.ADMIN;
+        this.updatedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     @PreUpdate
@@ -112,6 +124,10 @@ public class User {
 
     public String getAccountStatus() {
         return accountStatus;
+    }
+
+    public UserRole getRole() {
+        return role;
     }
 
     public OffsetDateTime getCreatedAt() {

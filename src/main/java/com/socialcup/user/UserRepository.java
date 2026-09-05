@@ -22,4 +22,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByIdForUpdate(@Param("id") Long id);
 
     boolean existsByEmail(String email);
+
+    boolean existsByRole(UserRole role);
 }
