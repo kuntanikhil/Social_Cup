@@ -65,7 +65,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       clearSession()
       setAuthMessage('Your session has expired. Sign in again.')
     }
-    const forbidden = () => setAuthorizationMessage('Administrator access is required for this action.')
+    const forbidden = () => setAuthorizationMessage('Administrator access required.')
     window.addEventListener(ADMIN_UNAUTHORIZED_EVENT, unauthorized)
     window.addEventListener(ADMIN_FORBIDDEN_EVENT, forbidden)
     return () => {

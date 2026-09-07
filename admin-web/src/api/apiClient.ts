@@ -45,7 +45,7 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
     return 'Unable to reach Social Cup. Check the backend and try again.'
   }
   if (error.response.status === 401) return 'Your session has expired. Sign in again.'
-  if (error.response.status === 403) return 'Administrator access is required for this action.'
+  if (error.response.status === 403) return 'Administrator access required.'
 
   const data = error.response.data
   if (typeof data === 'object' && data !== null) {

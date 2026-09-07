@@ -1,677 +1,270 @@
-Social Cup ☕
+# Social Cup prototype
 
-Social Cup is a coffee membership and discovery platform designed for Dallas. Members subscribe monthly, receive drink credits, discover partner cafes, redeem credits for real drinks, and rate individual drinks to build a personal drink diary.
+Social Cup is a demonstrable coffee-membership platform for Dallas. It includes a member mobile app, a cafe barista scanner, an operations admin console, and a Spring Boot modular-monolith API backed by PostgreSQL and Stripe Test Mode.
 
-The platform is being built as a multi-surface application consisting of:
+This repository is a prototype. It demonstrates the main transaction path, but it is not production-ready.
 
-A React Native mobile app for members and visitors
+## Architecture
 
-A React admin panel for the Social Cup team
+```text
+Expo member app ───────┐
+Admin React app ───────┼── HTTP/JSON ── Spring Boot API ── Supabase PostgreSQL
+Barista React app ─────┘                       │
+                                              └── Stripe Test Mode
+```
 
-A lightweight browser-based scan page for partner cafe staff
+The Spring Boot API is authoritative for membership, credits, redemption state, and payout snapshots. Clients never deduct credits or complete redemptions themselves.
 
-A Java Spring Boot REST API
+The backend currently lives at the repository root rather than in a nested `backend/` directory:
 
-A PostgreSQL database
+```text
+social-cup-backend/
+├── pom.xml                 # Spring Boot backend
+├── src/                    # backend source and Flyway migrations
+├── mobile/                 # Expo member app
+├── barista-web/            # Vite barista scanner
+└── admin-web/              # Vite admin console
+```
 
-Project Status: Prototype / Active Development
+## Implemented prototype flows
 
-Product Overview
+- Email/password registration, login, refresh tokens, and JWT authentication
+- Profile onboarding, neighbourhood, and coffee preferences
+- Cafe discovery, cafe details, menus, ratings, and drink diary
+- MEMBER/ADMIN application roles and first-admin bootstrap
+- Stripe subscription checkout, signed webhooks, and reconciliation fallback
+- A 30-credit, no-rollover billing-cycle reset with an immutable credit ledger
+- Five-minute QR and six-digit backup redemption sessions
+- Trusted cafe devices, atomic barista validation, replay prevention, and today's list
+- Admin cafe/drink/PIN management, redemption history, and payout snapshot summary
 
-Social Cup connects coffee lovers with independent partner cafes.
+## Requirements
 
-Members pay $24.99 per month and receive 30 drink credits per billing cycle. Credits can be redeemed for physical drinks at participating cafes.
+- Java 25
+- PostgreSQL (Supabase is used for the prototype)
+- Node.js and npm
+- Expo Go or an Expo-compatible simulator/device
+- Stripe CLI for local webhook testing
 
-Visitors can browse cafes, search and filter the network, rate drinks, and maintain a drink diary without subscribing.
+## Environment variables
 
-Cafe staff do not need an account or a dedicated app. They use a private browser-based scan page to validate a member's redemption code.
+Never commit real values. Root and frontend `.env` files are ignored; only placeholder `.env.example` files belong in Git.
 
-Core User Roles
+### Backend
 
-Visitor
+| Variable | Required | Purpose |
+|---|---:|---|
+| `DB_URL` | Yes | JDBC PostgreSQL URL, normally with SSL enabled for Supabase |
+| `DB_USERNAME` | Yes | PostgreSQL username |
+| `DB_PASSWORD` | Yes | PostgreSQL password |
+| `JWT_SECRET` | Yes | Base64-encoded signing key containing at least 32 bytes |
+| `STRIPE_SECRET_KEY` | Yes | Stripe Test Mode secret key |
+| `STRIPE_PRICE_ID` | Yes | Recurring Stripe Price used by checkout |
+| `STRIPE_WEBHOOK_SECRET` | For webhooks | Signing secret printed by Stripe CLI or configured on the endpoint |
+| `ADMIN_EMAIL` | First-admin bootstrap only | Existing registered user to promote when no ADMIN exists |
 
-A registered user who has not subscribed.
+See [`.env.example`](.env.example). Spring Boot reads process/IDE environment variables and does not automatically load that file.
 
-Visitors can:
+Generate a suitable JWT secret locally, for example:
 
-Browse partner cafes
+```bash
+openssl rand -base64 32
+```
 
-Search and filter cafes
+Store the result in your local secret manager or run configuration, not in source control.
 
-View cafe menus
+### Mobile
 
-Rate individual drinks
+Create `mobile/.env` from `mobile/.env.example`:
 
-Maintain a personal drink diary
+```env
+EXPO_PUBLIC_API_URL=http://YOUR_DEVELOPMENT_COMPUTER_LAN_IP:8080
+```
 
-Member
+A physical phone cannot use `localhost` to reach the development computer. The phone and computer must be on a network where that LAN address and port are reachable.
 
-A paying subscriber.
+### Barista Web
 
-Members receive everything available to Visitors, plus:
+Create `barista-web/.env`:
 
-30 drink credits per billing cycle
+```env
+VITE_API_URL=http://localhost:8080
+```
 
-In-app subscription through Stripe
+### Admin Web
 
-Drink redemption at partner cafes
+Create `admin-web/.env`:
 
-QR and six-digit backup redemption codes
+```env
+VITE_API_URL=http://localhost:8080
+```
 
-Barista
+## Local setup
 
-Cafe staff validating a redemption.
+### 1. Backend
 
-Baristas:
+Configure all required backend environment variables in the shell or IDE, then run from the repository root:
 
-Use a browser-based scan page
-
-Enter the cafe PIN once to trust the device
-
-Scan a member's QR code or enter the six-digit backup code
-
-Receive a simple green or red validation result
-
-View the cafe's redemptions for the current day
-
-Platform Administrator
-
-The Social Cup operations team.
-
-Administrators manage:
-
-Partner cafes
-
-Cafe payout rates
-
-Drink menus
-
-Credit pricing
-
-Featured cafes
-
-Signature drinks
-
-Members
-
-Redemption history
-
-Redemption voids
-
-Cafe payouts and statements
-
-Technology Stack
-
-Mobile
-
-React Native
-
-Expo
-
-Backend
-
-Java 25
-
-Spring Boot
-
-Spring Web
-
-Spring Data JPA
-
-Hibernate
-
-Spring Security
-
-Maven
-
-Flyway
-
-Database
-
-PostgreSQL
-
-Supabase PostgreSQL for the prototype
-
-Web Applications
-
-React Admin Panel
-
-Lightweight React/Web Barista Scanner
-
-Payments
-
-Stripe
-
-Stripe Test Mode during prototype development
-
-Apple Pay
-
-Google Pay
-
-Credit / Debit Card
-
-Storage
-
-Supabase Storage for cafe, drink, and profile images
-
-Monitoring
-
-Sentry
-
-High-Level Architecture
-
-                     SOCIAL CUP
-                          |
-        +-----------------+-----------------+
-        |                 |                 |
-        v                 v                 v
- React Native App    React Admin      Barista Web
-        |                 |                 |
-        +-----------------+-----------------+
-                          |
-                       HTTPS
-                          |
-                          v
-                Java Spring Boot API
-                          |
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-     PostgreSQL         Stripe        File Storage
-      Supabase                        Supabase
-
-The Spring Boot backend is the central authority for business rules.
-
-The mobile application and web clients never directly modify financial state such as credit balances or completed redemptions.
-
-Core Product Modules
-
-1. Platform Setup
-
-Environment configuration
-
-HTTPS
-
-Database migrations
-
-Monitoring
-
-Scheduled jobs
-
-Transactional email
-
-2. Authentication & Onboarding
-
-Email/password registration
-
-Google Sign-In
-
-Apple Sign-In
-
-Email verification
-
-Password reset
-
-Profile setup
-
-Coffee preferences
-
-Home neighbourhood
-
-Location permission
-
-3. Shop Discovery
-
-Featured cafes
-
-Signature drinks
-
-Preference matching
-
-Distance ordering
-
-Neighbourhood filtering
-
-Cafe search
-
-4. Cafe Details
-
-Photo gallery
-
-Opening hours
-
-Address and directions
-
-Full menu
-
-Retail and credit prices
-
-Drink ratings
-
-Redeem action
-
-5. Ratings & Drink Diary
-
-1–5 star drink ratings
-
-Optional 140-character notes
-
-One rating per user per drink
-
-Editable ratings
-
-Personal drink diary
-
-Cafe score derived from drink ratings
-
-6. Curated Discovery
-
-Ranking order for Phase 1:
-
-Featured cafes
-
-Preference-matched cafes
-
-Remaining cafes ordered by distance
-
-No recommendation scoring or background ranking engine is used in Phase 1.
-
-7. Membership & Credits
-
-$24.99 monthly membership
-
-30 drink credits per billing cycle
-
-No rollover
-
-No credit top-ups
-
-Stripe subscription lifecycle
-
-Credit ledger
-
-Payment failure handling
-
-8. Redemption
-
-One live redemption code per member
-
-Code valid for five minutes
-
-QR code
-
-Six-digit backup code
-
-One cafe + one drink per redemption session
-
-Server-side validation
-
-Transactional credit deduction
-
-Replay protection
-
-Cafe payout snapshot
-
-9. Admin Panel
-
-Dashboard
-
-Cafe management
-
-Menu management
-
-Pricing calculator
-
-Member management
-
-Redemption log
-
-Void handling
-
-CSV export
-
-Payout recording
-
-10. Quality Assurance
-
-Unit testing
-
-Integration testing
-
-PostgreSQL-backed tests
-
-Concurrency testing
-
-Replay and expiry testing
-
-iOS and Android regression
-
-Browser testing
-
-Real-device UAT
-
-Membership Rules
-
-Monthly Price:     $24.99
-Monthly Credits:   30
-Credit Value:      $1
-Rollover:          No
-Credit Top-Ups:    No
-
-Credits are granted only after Stripe confirms a successful payment.
-
-Credits are deducted only after a barista successfully validates a redemption.
-
-Generating or displaying a redemption code does not deduct credits.
-
-Redemption Flow
-
-Member opens cafe
-        |
-        v
-Selects Redeem
-        |
-        v
-Chooses drink
-        |
-        v
-Reviews credit cost
-        |
-        v
-Confirms at counter
-        |
-        v
-5-minute redemption session
-        |
-        +------ QR Code
-        |
-        +------ 6-digit backup code
-        |
-        v
-Barista validates
-        |
-        v
-Spring Boot performs locked transaction
-        |
-        +------ Validate membership
-        +------ Validate cafe
-        +------ Validate drink
-        +------ Validate expiry
-        +------ Validate credit balance
-        |
-        v
-Deduct credits once
-        |
-        v
-Record cafe payout
-        |
-        v
-GREEN
-
-A single redemption session must never result in more than one successful credit deduction.
-
-Credit Ledger
-
-The project uses a ledger-based approach instead of relying only on a mutable credit balance.
-
-Examples of credit transactions:
-
-CYCLE_GRANT
-CYCLE_EXPIRY
-REDEMPTION
-VOID_REFUND
-
-This provides an auditable history of how a member's balance changed.
-
-Cafe Payouts
-
-Each cafe has an administrator-defined payout rate per credit.
-
-At the moment a redemption succeeds, the backend stores a snapshot of that rate.
-
-Example:
-
-Drink Cost:             5 credits
-Credit Value:           $1.00
-Cafe Payout Rate:       $0.65 / credit
-
-Member Value:           $5.00
-Cafe Payout:            $3.25
-Social Cup Margin:      $1.75
-
-Historical redemption values are never recalculated using a cafe's future payout rate.
-
-Repository Structure
-
-social-cup/
-|
-+-- backend/
-|   +-- Spring Boot API
-|
-+-- mobile/
-|   +-- React Native + Expo
-|
-+-- admin-web/
-|   +-- React Admin Panel
-|
-+-- barista-web/
-|   +-- Cafe Scanner
-|
-+-- docs/
-|   +-- architecture/
-|   +-- api/
-|   +-- database/
-|   +-- testing/
-|
-+-- README.md
-
-Backend Package Structure
-
-The Spring Boot backend is organized by business capability.
-
-com.socialcup
-|
-+-- auth
-+-- users
-+-- profiles
-+-- cafes
-+-- drinks
-+-- discovery
-+-- ratings
-+-- memberships
-+-- billing
-+-- credits
-+-- redemptions
-+-- barista
-+-- payouts
-+-- admin
-+-- storage
-+-- email
-+-- jobs
-+-- common
-
-Social Cup is implemented as a modular monolith for the prototype.
-
-Local Backend Setup
-
-Requirements
-
-Java 25
-
-Maven / Maven Wrapper
-
-PostgreSQL-compatible database
-
-Git
-
-Verify Java:
-
-java -version
-javac -version
-
-Run the backend
-
-Windows:
-
-mvnw.cmd spring-boot:run
+```powershell
+.\mvnw.cmd spring-boot:run
+```
 
 macOS/Linux:
 
+```bash
 ./mvnw spring-boot:run
+```
 
-The backend runs locally at:
+Flyway applies migrations from `src/main/resources/db/migration`. Never edit an applied migration; add a new version instead.
 
-http://localhost:8080
+Verify:
 
-Health endpoint:
+```text
+GET http://localhost:8080/api/health
+```
 
-GET /api/health
+### 2. Mobile
 
-Expected response:
+```bash
+cd mobile
+npm install
+npm run typecheck
+npm start
+```
 
-Social Cup API is running
+Scan the Expo QR code with Expo Go or launch a configured simulator.
 
-Environment Variables
+### 3. Barista Web
 
-Database and external-service credentials must not be committed to Git.
+```bash
+cd barista-web
+npm install
+npm run dev
+```
 
-Example variables:
+Open the cafe-specific route printed by Vite, for example:
 
-DB_URL
-DB_USERNAME
-DB_PASSWORD
+```text
+http://localhost:5173/cafe/1
+```
 
-JWT_SECRET
+If another frontend already occupies port 5173, use the port Vite prints.
 
-STRIPE_SECRET_KEY
-STRIPE_WEBHOOK_SECRET
+### 4. Admin Web
 
-EMAIL_API_KEY
+```bash
+cd admin-web
+npm install
+npm run dev
+```
 
-SUPABASE_URL
-SUPABASE_STORAGE_KEY
+Open the URL printed by Vite. Login is followed by `GET /api/profile`; only `role: "ADMIN"` is accepted by the client, and `/api/admin/**` is independently protected by the backend.
 
-Use local environment configuration or secure cloud environment variables.
+## First administrator
 
-Database Migrations
+1. Start the backend with `ADMIN_EMAIL` blank.
+2. Register the intended administrator through `POST /api/auth/register` as a normal user.
+3. Stop the backend.
+4. Set `ADMIN_EMAIL` to that registered email in the backend process environment.
+5. Restart Spring Boot.
+6. Login through the normal `POST /api/auth/login` endpoint and use Admin Web.
 
-Flyway manages all PostgreSQL schema changes.
+Bootstrap promotes only an existing user and only while no ADMIN exists. It never creates an account or password.
 
-Migration files are stored under:
+## Stripe Test Mode
 
-backend/src/main/resources/db/migration/
+Create a recurring Stripe Price and configure `STRIPE_SECRET_KEY` and `STRIPE_PRICE_ID` with Test Mode values.
 
-Example:
+Forward signed local webhooks:
 
-V1__create_neighbourhoods.sql
-V2__create_users.sql
-V3__create_auth_identities.sql
+```bash
+stripe login
+stripe listen --forward-to http://localhost:8080/api/webhooks/stripe
+```
 
-Once a migration has been executed, it should not be edited. New schema changes should be added through a new migration.
+Copy the CLI's signing secret into the backend process environment as `STRIPE_WEBHOOK_SECRET`, then restart the backend. Do not commit it.
 
-API Design
+Checkout is created with an authenticated request and no client-supplied price:
 
-The backend exposes REST APIs for:
+```text
+POST http://localhost:8080/api/membership/checkout
+Authorization: Bearer <member access token>
+```
 
-/api/auth/**
-/api/profile/**
-/api/discover
-/api/cafes/**
-/api/drinks/**
-/api/membership/**
-/api/redemption-sessions/**
-/api/barista/**
-/api/admin/**
-/api/webhooks/stripe
+The response contains the Stripe customer, ephemeral-key, subscription, and payment client-secret values needed by a Payment Sheet client. The repository does not yet include the mobile Payment Sheet UI, so complete a Test Mode payment with a Stripe-supported test client/harness.
 
-Spring Boot owns all business validation and financial state changes.
+After payment, verify:
 
-Prototype Scope
+1. Stripe CLI forwards a successful invoice event.
+2. `GET /api/membership` returns `ACTIVE` and exactly 30 credits.
+3. `GET /api/credits/transactions` contains the cycle grant and any required expiry entry.
+4. If the webhook was missed, call authenticated `POST /api/membership/reconcile`.
+5. Call reconciliation again and confirm the same invoice creates no additional billing cycle or grant.
 
-The current prototype focuses on proving the complete Social Cup flow:
+`POST /api/membership/demo-activate` remains a development-only fallback for demonstrating redemption without completing Stripe checkout.
 
-Account
-  ->
-Discovery
-  ->
-Cafe
-  ->
-Membership
-  ->
-Credits
-  ->
-Redemption
-  ->
-Barista Validation
-  ->
-Rating
-  ->
-Admin Visibility
+## Main demo sequence
 
-Production hardening and nonessential Phase 2 capabilities will be handled after the core prototype is working.
+1. Register or login in the mobile app.
+2. Complete the profile and coffee preferences.
+3. Activate membership through Stripe Test Mode, reconciliation, or the explicitly development-only demo endpoint.
+4. Confirm membership shows 30 credits.
+5. Discover a cafe, open its detail page, select an active drink, and create a redemption session.
+6. Confirm the mobile preview shows the future balance while the server balance remains unchanged.
+7. Open Barista Web at `/cafe/{cafeId}`, enter the configured cafe PIN, and scan the QR token or enter the six-digit code.
+8. Confirm the first validation succeeds and a second scan is rejected as already used.
+9. Confirm the mobile polling screen changes to `REDEEMED` and refreshes the authoritative membership balance.
+10. Confirm the redemption appears in the barista Today list.
+11. Login to Admin Web as ADMIN and confirm the redemption and payout snapshot appear.
+12. Confirm a MEMBER token receives `403` from `/api/admin/**`.
 
-Out of Scope for Phase 1
+## Verification commands
 
-Cafe self-service portal
+```powershell
+# The external context smoke test runs when DB_URL is configured
+.\mvnw.cmd clean test
 
-Automated bank payouts
+cd mobile
+npm install
+npm run typecheck
+npx expo-doctor
 
-Push notifications
+cd ..\barista-web
+npm install
+npm run build
+npm run lint
 
-Advanced analytics
+cd ..\admin-web
+npm install
+npm run build
+npm run lint
+```
 
-Community-based recommendation ranking
+## Financial and consistency rules
 
-Credit top-ups
+- `credit_accounts.user_id` is the primary key: one account per user.
+- `drink_ratings` has a unique `(user_id, drink_id)` constraint.
+- Session creation locks the user and cancels/expires the previous live session.
+- Barista validation locks the redemption session and credit account.
+- `redemptions.session_id` is unique, preventing two redemptions for one session.
+- Successful redemption, ledger deduction, session transition, and payout snapshot commit in one transaction.
+- Billing cycles use the Stripe invoice ID as a unique idempotency reference.
+- A successful billing cycle expires the remaining balance and resets to 30; it never adds 30.
+- Historical payout values are stored on the redemption and are not recalculated from the cafe's current rate.
 
-Order-ahead
+## Prototype limitations
 
-Offline cafe scanning
+Do not treat the current system as production-ready. Important remaining work includes:
 
-Social connections
+- Production deployment, TLS, domain, CORS, firewall, and secret-management configuration
+- A separate staging database and automated PostgreSQL integration tests
+- Production Stripe webhook monitoring, retry operations, and removal/disablement of demo endpoints
+- Mobile Stripe Payment Sheet integration
+- Rate limiting and brute-force protection for login, PIN, backup-code, and reconciliation endpoints
+- Short-lived/rotating cafe-device authorization; the current schema supports revocation but not expiry
+- Database-backed concurrent integration tests for redemption and billing idempotency
+- Centralized observability, alerting, backups, restore drills, and audit-log completion
+- Dependency/security update policy and mobile transitive dependency review
+- Privacy policy, terms, data-retention policy, accessibility/device/browser UAT, and app-store readiness
 
-Activity feed
-
-Saved cafes
-
-Meetup planning
-
-Development Principles
-
-The backend is authoritative.
-
-Financial history is never silently deleted.
-
-Credits can never become negative.
-
-A redemption can succeed at most once.
-
-Stripe events must be processed idempotently.
-
-Historical cafe payout rates must remain immutable.
-
-Frontend validation improves UX; backend validation protects the system.
-
-PostgreSQL constraints reinforce important business rules.
-
-Secrets never belong in source control.
-
-Build the working end-to-end flow before overengineering.
-
-Project Status
-
-🚧 Active prototype development
-
-Current focus:
-
-Spring Boot backend foundation
-
-PostgreSQL integration
-
-Flyway database migrations
-
-Core Social Cup domain model
-
-License
-
-This project is currently intended for private prototype and development use.
+No bank transfers, payout-run automation, advanced RBAC, or production identity system are implemented.
