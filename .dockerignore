@@ -1,0 +1,13 @@
+target/
+.git/
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example
+*.log
+admin-web/
+barista-web/
+mobile/
+README.md
+HELP.md
