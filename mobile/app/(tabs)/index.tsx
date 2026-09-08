@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 
 import { getApiErrorMessage } from '@/src/api/errors';
-import { fetchMembership, fetchProfile } from '@/src/api/profileApi';
+import { getMembership } from '@/src/api/membershipApi';
+import { fetchProfile } from '@/src/api/profileApi';
 import { useAuth } from '@/src/auth/AuthContext';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { MessageBanner } from '@/src/components/MessageBanner';
@@ -31,7 +32,7 @@ export default function HomeScreen() {
     try {
       const [nextProfile, nextMembership] = await Promise.all([
         fetchProfile(),
-        fetchMembership(),
+        getMembership(),
       ]);
       setProfile(nextProfile);
       setMembership(nextMembership);

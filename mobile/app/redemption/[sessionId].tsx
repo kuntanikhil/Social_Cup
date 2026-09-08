@@ -5,10 +5,11 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { getApiErrorMessage, getHttpStatus } from '@/src/api/errors';
-import { fetchMembership } from '@/src/api/profileApi';
+import { getMembership } from '@/src/api/membershipApi';
 import { fetchRedemptionSession } from '@/src/api/redemptionApi';
 import { useAuth } from '@/src/auth/AuthContext';
 import { AppHeader } from '@/src/components/AppHeader';
+import { DrinkRatingModal } from '@/src/components/DrinkRatingModal';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { MessageBanner } from '@/src/components/MessageBanner';
 import { PrimaryButton } from '@/src/components/PrimaryButton';
@@ -31,6 +32,8 @@ export default function RedemptionCodeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatedBalance, setUpdatedBalance] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [ratingSuccess, setRatingSuccess] = useState<string | null>(null);
   const timerAnchor = useRef({ seconds: oneTimeSession?.expiresInSeconds ?? 0, clientTime: Date.now() });
 
   const syncServerClock = useCallback((nextSession: RedemptionSession) => {
@@ -96,7 +99,7 @@ export default function RedemptionCodeScreen() {
 
   useEffect(() => {
     if (status !== 'REDEEMED') return;
-    void fetchMembership()
+    void getMembership()
       .then((membership) => setUpdatedBalance(membership.creditsRemaining))
       .catch(() => setUpdatedBalance(null));
   }, [status]);
@@ -119,6 +122,7 @@ export default function RedemptionCodeScreen() {
       <AppHeader title="Redemption code" />
       <ScrollView contentContainerStyle={styles.content}>
         {error ? <MessageBanner message={error} /> : null}
+        {ratingSuccess ? <MessageBanner message={ratingSuccess} tone="success" /> : null}
 
         {!cafe || !drink ? (
           <ResultState
@@ -138,6 +142,16 @@ export default function RedemptionCodeScreen() {
           >
             <Text style={styles.resultDrink}>{drink?.name}</Text>
             <Text style={styles.resultCafe}>{cafe?.name}</Text>
+            <View style={styles.ratingAction}>
+              <PrimaryButton
+                label="Add to Drink Diary"
+                onPress={() => {
+                  setRatingSuccess(null);
+                  setIsRatingOpen(true);
+                }}
+                variant="secondary"
+              />
+            </View>
           </ResultState>
         ) : visuallyExpired ? (
           <ResultState
@@ -173,6 +187,19 @@ export default function RedemptionCodeScreen() {
           />
         )}
       </ScrollView>
+      <DrinkRatingModal
+        drink={
+          cafe && drink
+            ? { id: drink.id, name: drink.name, cafeName: cafe.name }
+            : null
+        }
+        onClose={() => setIsRatingOpen(false)}
+        onSaved={() => {
+          setRatingSuccess('Saved to your Drink Diary.');
+          setIsRatingOpen(false);
+        }}
+        visible={isRatingOpen && status === 'REDEEMED'}
+      />
     </Screen>
   );
 }
@@ -267,4 +294,5 @@ const styles = StyleSheet.create({
   resultCafe: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 14, textAlign: 'center' },
   resultMessage: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 13, lineHeight: 21, textAlign: 'center' },
   resultAction: { marginTop: spacing.sm, width: '100%' },
+  ratingAction: { marginTop: spacing.sm, width: '100%' },
 });

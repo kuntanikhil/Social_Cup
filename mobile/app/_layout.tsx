@@ -5,6 +5,7 @@ import {
   Poppins_700Bold,
   useFonts,
 } from '@expo-google-fonts/poppins';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +14,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider } from '@/src/auth/AuthContext';
 import { colors } from '@/src/constants/theme';
+import {
+  isStripeConfigured,
+  STRIPE_PUBLISHABLE_KEY,
+  STRIPE_URL_SCHEME,
+} from '@/src/constants/stripe';
 import { RedemptionSessionProvider } from '@/src/redemption/RedemptionSessionContext';
 
 void SplashScreen.preventAutoHideAsync();
@@ -38,7 +44,7 @@ export default function RootLayout() {
     return null;
   }
 
-  return (
+  const app = (
     <SafeAreaProvider>
       <AuthProvider>
         <RedemptionSessionProvider>
@@ -54,9 +60,22 @@ export default function RootLayout() {
             <Stack.Screen name="cafe/[id]" />
             <Stack.Screen name="redeem/[cafeId]" />
             <Stack.Screen name="redemption/[sessionId]" />
+            <Stack.Screen name="membership" />
           </Stack>
         </RedemptionSessionProvider>
       </AuthProvider>
     </SafeAreaProvider>
+  );
+
+  if (!isStripeConfigured) {
+    return app;
+  }
+
+  return (
+    <StripeProvider
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
+      urlScheme={STRIPE_URL_SCHEME}>
+      {app}
+    </StripeProvider>
   );
 }

@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { fetchCafe } from '@/src/api/cafeApi';
 import { getApiErrorMessage, getHttpStatus } from '@/src/api/errors';
-import { fetchMembership } from '@/src/api/profileApi';
+import { getMembership } from '@/src/api/membershipApi';
 import { createRedemptionSession } from '@/src/api/redemptionApi';
 import { useAuth } from '@/src/auth/AuthContext';
 import { AppHeader } from '@/src/components/AppHeader';
@@ -30,6 +30,13 @@ export default function RedeemDrinkScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const openMembership = useCallback(() => {
+    router.replace({
+      pathname: '/membership',
+      params: { cafeId: String(cafeId) },
+    });
+  }, [cafeId, router]);
+
   const load = useCallback(async () => {
     if (!Number.isInteger(cafeId) || cafeId <= 0) {
       setError('This cafe link is invalid.');
@@ -41,10 +48,13 @@ export default function RedeemDrinkScreen() {
     try {
       const [nextCafe, nextMembership] = await Promise.all([
         fetchCafe(cafeId),
-        fetchMembership(),
+        getMembership(),
       ]);
       setCafe(nextCafe);
       setMembership(nextMembership);
+      if (!nextMembership.isMember) {
+        openMembership();
+      }
     } catch (requestError) {
       setError(
         getHttpStatus(requestError) === 404
@@ -54,7 +64,7 @@ export default function RedeemDrinkScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [cafeId]);
+  }, [cafeId, openMembership]);
 
   useEffect(() => {
     if (isAuthenticated) void load();
@@ -76,8 +86,7 @@ export default function RedeemDrinkScreen() {
       if (status === 409) {
         setError('You do not have enough credits for this drink.');
       } else if (status === 403) {
-        setError('An active paid membership is required to redeem.');
-        void fetchMembership().then(setMembership).catch(() => undefined);
+        openMembership();
       } else if (status === 404) {
         setError('The selected cafe or drink is no longer available.');
       } else {
@@ -91,8 +100,10 @@ export default function RedeemDrinkScreen() {
   if (isAuthLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
   if (isLoading) return <LoadingScreen label="Checking membership and menu…" />;
+  if (membership && !membership.isMember) {
+    return <LoadingScreen label="Opening membership…" />;
+  }
 
-  const isActiveMember = membership?.status === 'ACTIVE' && membership.isMember;
   const creditsRemaining = membership?.creditsRemaining ?? 0;
   const canAfford = selectedDrink ? creditsRemaining >= selectedDrink.creditPrice : false;
 
@@ -102,15 +113,7 @@ export default function RedeemDrinkScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {error ? <MessageBanner message={error} /> : null}
 
-        {!isActiveMember ? (
-          <View style={styles.membershipRequired}>
-            <Text style={styles.lock}>●</Text>
-            <Text style={styles.title}>Membership required</Text>
-            <Text style={styles.body}>An active Social Cup membership is needed before you can create a redemption code.</Text>
-            <View style={styles.balancePill}><Text style={styles.balancePillText}>Current status: {membership?.status.split('_').join(' ') ?? 'Unavailable'}</Text></View>
-            <PrimaryButton label="Check again" onPress={() => void load()} variant="secondary" />
-          </View>
-        ) : cafe ? (
+        {cafe ? (
           <>
             <View style={styles.heading}>
               <Text style={styles.eyebrow}>{cafe.name}</Text>
@@ -204,8 +207,4 @@ const styles = StyleSheet.create({
   strong: { color: colors.text, fontFamily: fonts.semibold, fontSize: 14 },
   divider: { backgroundColor: colors.border, height: 1 },
   previewNote: { color: colors.textMuted, fontFamily: fonts.regular, fontSize: 11, lineHeight: 17 },
-  membershipRequired: { alignItems: 'center', backgroundColor: colors.card, borderColor: colors.border, borderRadius: radii.lg, borderWidth: 1, gap: spacing.md, padding: spacing.xl },
-  lock: { color: colors.warning, fontSize: 28 },
-  balancePill: { backgroundColor: colors.secondary, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
-  balancePillText: { color: colors.primary, fontFamily: fonts.semibold, fontSize: 11 },
 });

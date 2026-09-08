@@ -35,18 +35,27 @@ export type AuthTokens = {
   expiresIn: number;
 };
 
+export type MembershipStatus =
+  | 'NONE'
+  | 'INCOMPLETE'
+  | 'ACTIVE'
+  | 'PAYMENT_FAILED'
+  | 'CANCEL_AT_PERIOD_END'
+  | 'ENDED';
+
 export type Membership = {
-  status:
-    | 'NONE'
-    | 'INCOMPLETE'
-    | 'ACTIVE'
-    | 'PAYMENT_FAILED'
-    | 'CANCEL_AT_PERIOD_END'
-    | 'ENDED';
+  status: MembershipStatus;
   isMember: boolean;
   creditsRemaining: number;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+};
+
+export type StripeCheckoutResponse = {
+  subscriptionId: string;
+  clientSecret: string;
+  ephemeralKey: string;
+  customerId: string;
 };
 
 export type DiscoverCafe = {
@@ -173,4 +182,34 @@ export type RedemptionSession = {
   status: RedemptionStatus;
   expiresAt: string;
   serverTime: string;
+};
+
+export type RatingRequest = {
+  stars: number;
+  note: string | null;
+};
+
+export type RatingResponse = {
+  id: number;
+  drinkId: number;
+  stars: number;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DrinkDiaryEntry = {
+  ratingId: number;
+  drinkId: number;
+  drinkName: string;
+  cafeId: number;
+  cafeName: string;
+  stars: number;
+  note: string | null;
+  ratedAt: string;
+};
+
+export type RatingSummary = {
+  averageRating: number | null;
+  ratingCount: number;
 };

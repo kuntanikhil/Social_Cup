@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,10 @@ import { getApiErrorMessage, getHttpStatus } from '@/src/api/errors';
 import { useAuth } from '@/src/auth/AuthContext';
 import { AppHeader } from '@/src/components/AppHeader';
 import { EmptyState } from '@/src/components/EmptyState';
+import {
+  DrinkRatingModal,
+  type DrinkRatingTarget,
+} from '@/src/components/DrinkRatingModal';
 import { LoadingScreen } from '@/src/components/LoadingScreen';
 import { MessageBanner } from '@/src/components/MessageBanner';
 import { PrimaryButton } from '@/src/components/PrimaryButton';
@@ -34,6 +39,9 @@ export default function CafeDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ratingDrink, setRatingDrink] = useState<DrinkRatingTarget | null>(null);
+  const [ratedDrinkIds, setRatedDrinkIds] = useState<Set<number>>(() => new Set());
+  const [ratingSuccess, setRatingSuccess] = useState<string | null>(null);
 
   const load = useCallback(async (refreshing = false) => {
     if (!Number.isInteger(cafeId) || cafeId <= 0) {
@@ -74,6 +82,7 @@ export default function CafeDetailScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl onRefresh={() => void load(true)} refreshing={isRefreshing} tintColor={colors.primary} />}>
         {error ? <MessageBanner message={error} /> : null}
+        {ratingSuccess ? <MessageBanner message={ratingSuccess} tone="success" /> : null}
         {cafe ? (
           <>
             {photoUrls.length ? (
@@ -101,7 +110,21 @@ export default function CafeDetailScreen() {
 
             <View style={styles.menuSection}>
               <Text style={styles.sectionTitle}>Menu</Text>
-              {cafe.drinks.length ? cafe.drinks.map((drink) => <DrinkCard drink={drink} key={drink.id} />) : (
+              {cafe.drinks.length ? cafe.drinks.map((drink) => (
+                <DrinkCard
+                  drink={drink}
+                  isRated={ratedDrinkIds.has(drink.id)}
+                  key={drink.id}
+                  onRate={() => {
+                    setRatingSuccess(null);
+                    setRatingDrink({
+                      id: drink.id,
+                      name: drink.name,
+                      cafeName: cafe.name,
+                    });
+                  }}
+                />
+              )) : (
                 <EmptyState message="This cafe has not published active drinks yet." title="Menu coming soon" />
               )}
             </View>
@@ -116,6 +139,16 @@ export default function CafeDetailScreen() {
           />
         </View>
       ) : null}
+      <DrinkRatingModal
+        drink={ratingDrink}
+        onClose={() => setRatingDrink(null)}
+        onSaved={(rating) => {
+          setRatedDrinkIds((current) => new Set(current).add(rating.drinkId));
+          setRatingSuccess('Saved to your Drink Diary.');
+          setRatingDrink(null);
+        }}
+        visible={ratingDrink !== null}
+      />
     </Screen>
   );
 }
@@ -142,7 +175,15 @@ function OpeningHours({ hours }: { hours: CafeOpeningHours[] }) {
   );
 }
 
-function DrinkCard({ drink }: { drink: Drink }) {
+function DrinkCard({
+  drink,
+  isRated,
+  onRate,
+}: {
+  drink: Drink;
+  isRated: boolean;
+  onRate: () => void;
+}) {
   const photoUrl = resolveMediaUrl(drink.photoPath);
   return (
     <View style={styles.drinkCard}>
@@ -158,6 +199,18 @@ function DrinkCard({ drink }: { drink: Drink }) {
           <Text style={styles.retailPrice}>${Number(drink.retailPrice).toFixed(2)}</Text>
           <Text style={styles.creditPrice}>{drink.creditPrice} credits</Text>
         </View>
+        <Pressable
+          accessibilityLabel={`${isRated ? 'Edit diary entry for' : 'Add to diary'} ${drink.name}`}
+          accessibilityRole="button"
+          onPress={onRate}
+          style={({ pressed }) => [
+            styles.diaryAction,
+            pressed && styles.diaryActionPressed,
+          ]}>
+          <Text style={styles.diaryActionText}>
+            {isRated ? 'Edit Diary Entry' : 'Add to Diary'}
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -208,5 +261,8 @@ const styles = StyleSheet.create({
   priceRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
   retailPrice: { color: colors.textMuted, fontFamily: fonts.medium, fontSize: 11 },
   creditPrice: { color: colors.primary, fontFamily: fonts.semibold, fontSize: 12 },
+  diaryAction: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: colors.secondary, borderRadius: radii.pill, marginTop: spacing.md, minHeight: 36, justifyContent: 'center', paddingHorizontal: spacing.md },
+  diaryActionPressed: { opacity: 0.68 },
+  diaryActionText: { color: colors.primary, fontFamily: fonts.semibold, fontSize: 11 },
   actionBar: { backgroundColor: colors.surface, borderTopColor: colors.border, borderTopWidth: 1, padding: spacing.lg, paddingBottom: spacing.xl },
 });
