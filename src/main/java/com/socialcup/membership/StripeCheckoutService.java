@@ -47,15 +47,40 @@ public class StripeCheckoutService {
                                         .createForStripeCheckout(user)
                         ));
 
-        if (hasCurrentStripeCheckout(localSubscription)) {
+        if (localSubscription.getStatus().isMember()) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "A Stripe subscription already exists for this membership"
+                    "Membership is already active for this user"
             );
         }
 
         String stripeStage = "customer";
         try {
+            if (hasStoredStripeSubscription(localSubscription)) {
+                if (isLocallyResumable(localSubscription)) {
+                    if (localSubscription.getStripeCustomerId() == null
+                            || localSubscription.getStripeCustomerId().isBlank()) {
+                        throw new ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "The existing checkout is missing its Stripe customer and cannot be resumed"
+                        );
+                    }
+
+                    stripeStage = "subscription_resume";
+                    return stripeGateway.resumeSubscriptionCheckout(
+                            localSubscription.getStripeSubscriptionId(),
+                            localSubscription.getStripeCustomerId()
+                    );
+                }
+
+                if (localSubscription.getStatus() != SubscriptionStatus.ENDED) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "The existing Stripe subscription is not eligible for a new checkout"
+                    );
+                }
+            }
+
             String customerId = localSubscription.getStripeCustomerId();
             if (customerId == null || customerId.isBlank()) {
                 customerId = stripeGateway.createCustomer(user).getId();
@@ -103,10 +128,14 @@ public class StripeCheckoutService {
         }
     }
 
-    private boolean hasCurrentStripeCheckout(Subscription subscription) {
+    private boolean hasStoredStripeSubscription(Subscription subscription) {
         return subscription.getStripeSubscriptionId() != null
-                && !subscription.getStripeSubscriptionId().isBlank()
-                && subscription.getStatus() != SubscriptionStatus.ENDED;
+                && !subscription.getStripeSubscriptionId().isBlank();
+    }
+
+    private boolean isLocallyResumable(Subscription subscription) {
+        return subscription.getStatus() == SubscriptionStatus.INCOMPLETE
+                || subscription.getStatus() == SubscriptionStatus.PAYMENT_FAILED;
     }
 
     private StripePeriod currentPeriod(

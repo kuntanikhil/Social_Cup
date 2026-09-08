@@ -14,7 +14,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://socialcup-production.up.railway.app"
+        "EXPO_PUBLIC_API_URL": "https://socialcup-production.up.railway.app",
+        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY" :"pk_test_51UC4Zz2O386Kkhv7wvptxbW8pKoAPB219UDK0EUKYQpr4NjTWMdEWJvgALdxtN12oXrvErGQQNmGsj8lvKlyBEZC00F8B9BHXr"
       }
     },
 

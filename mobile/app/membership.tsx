@@ -179,7 +179,7 @@ function MembershipPaymentScreen() {
       if (didCancel || paymentError) {
         if (didCancel || paymentError?.code === PaymentSheetError.Canceled) {
           setNotice(
-            'Payment was cancelled. Your membership and credits have not changed.',
+            'Payment was cancelled. You can resume checkout anytime.',
           );
         } else if (paymentError?.code === PaymentSheetError.Timeout) {
           setError('The payment form timed out. Please try again.');
@@ -200,7 +200,7 @@ function MembershipPaymentScreen() {
       if (!alive.current) return;
       if (getHttpStatus(requestError) === 409) {
         setError(
-          'A Stripe checkout already exists for this membership. Check its payment status below.',
+          'This Stripe checkout cannot be resumed right now. Check its payment status, then try again.',
         );
       } else {
         setError(
@@ -236,7 +236,11 @@ function MembershipPaymentScreen() {
       if (!alive.current) return;
       setMembership(nextMembership);
 
-      if (!nextMembership.isMember && nextMembership.status === 'INCOMPLETE') {
+      if (
+        !nextMembership.isMember &&
+        (nextMembership.status === 'INCOMPLETE' ||
+          nextMembership.status === 'PAYMENT_FAILED')
+      ) {
         // Recovery fallback only: normal activation is always webhook + GET polling.
         nextMembership = await reconcileMembership();
         if (!alive.current) return;
@@ -285,12 +289,14 @@ function MembershipPaymentScreen() {
   const canStartNewCheckout =
     membership?.status === 'NONE' || membership?.status === 'ENDED';
   const canResumeCheckout =
-    pendingCheckout !== null && membership?.status !== 'ENDED';
+    membership?.status === 'INCOMPLETE' ||
+    membership?.status === 'PAYMENT_FAILED' ||
+    (pendingCheckout !== null && membership?.status !== 'ENDED');
   const showSubscribe =
     !isMember &&
     phase !== 'activating' &&
     phase !== 'delayed' &&
-    (canStartNewCheckout || canResumeCheckout);
+    canStartNewCheckout;
 
   return (
     <Screen padded={false}>
@@ -377,9 +383,16 @@ function MembershipPaymentScreen() {
           <View style={styles.statusCard}>
             <Text style={styles.statusTitle}>Payment needs attention</Text>
             <Text style={styles.statusCopy}>
-              We couldn&apos;t confirm the subscription payment. Check the status again after updating the payment in Stripe.
+              We couldn&apos;t confirm the subscription payment. You can retry the secure payment if Stripe still allows this checkout.
             </Text>
             <PrimaryButton
+              disabled={isChecking}
+              isLoading={isPaying}
+              label="Retry Secure Payment"
+              onPress={() => void subscribe()}
+            />
+            <PrimaryButton
+              disabled={isPaying}
               isLoading={isChecking}
               label="Check Payment Status"
               onPress={() => void checkActivation()}
@@ -388,13 +401,20 @@ function MembershipPaymentScreen() {
           </View>
         ) : null}
 
-        {!isMember && membership?.status === 'INCOMPLETE' && !pendingCheckout && phase === 'idle' ? (
+        {!isMember && membership?.status === 'INCOMPLETE' && phase === 'idle' ? (
           <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>Checkout in progress</Text>
+            <Text style={styles.statusTitle}>Checkout not completed</Text>
             <Text style={styles.statusCopy}>
-              A subscription checkout already exists. If payment was completed, verify its status with Stripe.
+              Your previous payment wasn&apos;t completed. You can safely resume the secure Stripe payment.
             </Text>
             <PrimaryButton
+              disabled={isChecking}
+              isLoading={isPaying}
+              label="Resume Secure Payment"
+              onPress={() => void subscribe()}
+            />
+            <PrimaryButton
+              disabled={isPaying}
               isLoading={isChecking}
               label="Check Payment Status"
               onPress={() => void checkActivation()}

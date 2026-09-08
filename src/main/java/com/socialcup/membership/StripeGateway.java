@@ -19,9 +19,13 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class StripeGateway {
+
+    private static final Set<String> RESUMABLE_SUBSCRIPTION_STATUSES =
+            Set.of("incomplete", "past_due");
 
     private final StripeProperties properties;
     private final RequestOptions requestOptions;
@@ -80,13 +84,74 @@ public class StripeGateway {
             throws StripeException {
         return Subscription.retrieve(
                 subscriptionId,
-                Map.of("expand", List.of("latest_invoice")),
+                Map.of("expand", List.of("latest_invoice.confirmation_secret")),
                 requestOptions
         );
     }
 
+    /**
+     * Rebuilds PaymentSheet credentials for an existing Stripe subscription.
+     * This never creates a second subscription; only the short-lived customer
+     * ephemeral key is refreshed.
+     */
+    public StripeCheckoutResponse resumeSubscriptionCheckout(
+            String subscriptionId,
+            String expectedCustomerId
+    ) throws StripeException {
+        Subscription stripeSubscription = retrieveSubscription(subscriptionId);
+        if (!RESUMABLE_SUBSCRIPTION_STATUSES.contains(stripeSubscription.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The existing Stripe subscription is not in a resumable payment state"
+            );
+        }
+
+        String actualCustomerId = stripeSubscription.getCustomer();
+        if (actualCustomerId == null || !actualCustomerId.equals(expectedCustomerId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The existing Stripe subscription customer does not match the local membership"
+            );
+        }
+
+        Invoice latestInvoice = stripeSubscription.getLatestInvoiceObject();
+        if (latestInvoice == null
+                && stripeSubscription.getLatestInvoice() != null
+                && !stripeSubscription.getLatestInvoice().isBlank()) {
+            latestInvoice = retrieveInvoice(stripeSubscription.getLatestInvoice());
+        }
+        if (latestInvoice == null
+                || latestInvoice.getConfirmationSecret() == null
+                || latestInvoice.getConfirmationSecret().getClientSecret() == null
+                || latestInvoice.getConfirmationSecret().getClientSecret().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The existing Stripe subscription no longer has a resumable payment"
+            );
+        }
+
+        EphemeralKey ephemeralKey = createEphemeralKey(expectedCustomerId);
+        if (ephemeralKey.getSecret() == null || ephemeralKey.getSecret().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Stripe did not return customer session credentials"
+            );
+        }
+
+        return new StripeCheckoutResponse(
+                stripeSubscription.getId(),
+                latestInvoice.getConfirmationSecret().getClientSecret(),
+                ephemeralKey.getSecret(),
+                expectedCustomerId
+        );
+    }
+
     public Invoice retrieveInvoice(String invoiceId) throws StripeException {
-        return Invoice.retrieve(invoiceId, requestOptions);
+        return Invoice.retrieve(
+                invoiceId,
+                Map.of("expand", List.of("confirmation_secret")),
+                requestOptions
+        );
     }
 
     public Event verifyWebhook(String payload, String signatureHeader) {
